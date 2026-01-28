@@ -1,0 +1,152 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+//////////////////////////////////////////////////
+// USER & AUTH
+//////////////////////////////////////////////////
+
+model User {
+  id          String   @id @default(uuid())
+  name        String
+  email       String   @unique
+  password    String
+  photo       String?  // profile image
+  language    String   @default("en")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  trips       Trip[]
+}
+
+//////////////////////////////////////////////////
+// TRIP CORE
+//////////////////////////////////////////////////
+
+model Trip {
+  id          String   @id @default(uuid())
+  userId      String
+  name        String
+  description String?
+  startDate   DateTime
+  endDate     DateTime
+  isPublic    Boolean  @default(false)
+  shareCode   String?  @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stops       TripStop[]
+  budget      TripBudget?
+
+  @@index([userId])
+}
+
+//////////////////////////////////////////////////
+// CITY MASTER
+//////////////////////////////////////////////////
+
+model City {
+  id           Int      @id @default(autoincrement())
+  name         String
+  country      String
+  costIndex    Float    // avg cost index
+  popularity   Int      // popularity score
+  description  String?
+  image        String?
+
+  activities   Activity[]
+  tripStops    TripStop[]
+}
+
+//////////////////////////////////////////////////
+// TRIP STOPS (CITIES IN A TRIP)
+//////////////////////////////////////////////////
+
+model TripStop {
+  id          String   @id @default(uuid())
+  tripId      String
+  cityId      Int
+  startDate   DateTime
+  endDate     DateTime
+  orderIndex  Int
+
+  trip        Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  city        City     @relation(fields: [cityId], references: [id])
+  activities  TripActivity[]
+
+  @@index([tripId])
+}
+
+//////////////////////////////////////////////////
+// ACTIVITY MASTER
+//////////////////////////////////////////////////
+
+model Activity {
+  id          Int      @id @default(autoincrement())
+  cityId      Int
+  name        String
+  type        String   // adventure, food, culture
+  cost        Float
+  duration    Int      // minutes
+  description String?
+  image       String?
+
+  city        City     @relation(fields: [cityId], references: [id])
+  tripActs    TripActivity[]
+}
+
+//////////////////////////////////////////////////
+// ACTIVITIES ASSIGNED TO A TRIP DAY
+//////////////////////////////////////////////////
+
+model TripActivity {
+  id           String   @id @default(uuid())
+  tripStopId   String
+  activityId   Int
+  scheduledOn  DateTime
+
+  tripStop     TripStop @relation(fields: [tripStopId], references: [id], onDelete: Cascade)
+  activity     Activity @relation(fields: [activityId], references: [id])
+
+  @@index([tripStopId])
+}
+
+//////////////////////////////////////////////////
+// BUDGET
+//////////////////////////////////////////////////
+
+model TripBudget {
+  id            String   @id @default(uuid())
+  tripId        String   @unique
+  stayCost      Float    @default(0)
+  transportCost Float    @default(0)
+  activityCost  Float    @default(0)
+  mealCost      Float    @default(0)
+  totalCost     Float    @default(0)
+  updatedAt     DateTime @updatedAt
+
+  trip          Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+}
+
+//////////////////////////////////////////////////
+// ADMIN ANALYTICS (OPTIONAL)
+//////////////////////////////////////////////////
+
+model AdminLog {
+  id        String   @id @default(uuid())
+  action    String
+  metadata  Json?
+  createdAt DateTime @default(now())
+}
